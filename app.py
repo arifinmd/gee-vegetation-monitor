@@ -284,13 +284,20 @@ def main():
     # --- SIDEBAR CONTROL PANEL ---
     st.sidebar.markdown("### ⚙️ Panel Kontrol")
     
-    # 1. AOI Upload
+    # 1. AOI Input Method
     st.sidebar.markdown("---")
     st.sidebar.markdown("**1. Batas Wilayah (AOI)**")
-    uploaded_file = st.sidebar.file_uploader(
-        "Unggah file AOI (.geojson, .kml, atau .zip berisi Shapefile)",
-        type=["geojson", "kml", "zip"]
+    aoi_method = st.sidebar.radio(
+        "Metode Input AOI:",
+        options=["Unggah File", "Gambar Manual di Peta"]
     )
+    
+    uploaded_file = None
+    if aoi_method == "Unggah File":
+        uploaded_file = st.sidebar.file_uploader(
+            "Unggah file AOI (.geojson, .kml, atau .zip berisi Shapefile)",
+            type=["geojson", "kml", "zip"]
+        )
     
     # 2. Select Index
     st.sidebar.markdown("---")
@@ -338,21 +345,47 @@ def main():
     # End date is dynamically set to today
     end_date = datetime.today().strftime('%Y-%m-%d')
     
-    # Process uploaded file
-    if uploaded_file is not None:
+    geojson_geom = None
+    aoi_name = "Manual Draw"
+    
+    if aoi_method == "Unggah File":
+        if uploaded_file is not None:
+            try:
+                gdf = parse_aoi(uploaded_file)
+                # Create ee.Geometry from gdf
+                union_geom = gdf.geometry.unary_union
+                
+                # Sederhanakan geometri untuk GeoJSON/KML yang sangat kompleks agar tidak melebihi batas payload GEE
+                # Toleransi 0.0001 derajat (~10 meter) cukup untuk mempertahankan bentuk asli namun memangkas jumlah vertex
+                union_geom = union_geom.simplify(tolerance=0.0001, preserve_topology=True)
+                
+                geojson_geom = shapely.geometry.mapping(union_geom)
+                aoi_name = uploaded_file.name
+            except Exception as e:
+                st.error(f"Terjadi kesalahan saat memproses data: {e}")
+                
+    elif aoi_method == "Gambar Manual di Peta":
+        st.markdown("### ✏️ Gambar Batas Wilayah (AOI)")
+        st.info("Silakan gunakan *Draw a polygon* (ikon segilima) pada peta di bawah ini untuk menggambar batas wilayah Anda.")
+        
+        # Create an initial map for drawing
+        m_draw = geemap.Map(center=[-2.5, 118.0], zoom=5) # Default center to Indonesia
+        # Add draw control (usually on by default in geemap, but good to be explicit)
+        
+        # Render map for drawing
+        draw_output = m_draw.to_streamlit(height=450, bidirectional=True)
+        
+        if draw_output and draw_output.get("last_active_drawing"):
+            drawn_feature = draw_output["last_active_drawing"]
+            if drawn_feature and "geometry" in drawn_feature:
+                # Get the GeoJSON geometry from the drawn feature
+                geojson_geom = drawn_feature["geometry"]
+                aoi_name = "Area Gambar Manual"
+                
+    if geojson_geom is not None:
         try:
-            gdf = parse_aoi(uploaded_file)
-            # Create ee.Geometry from gdf
-            union_geom = gdf.geometry.unary_union
-            
-            # Sederhanakan geometri untuk GeoJSON/KML yang sangat kompleks agar tidak melebihi batas payload GEE
-            # Toleransi 0.0001 derajat (~10 meter) cukup untuk mempertahankan bentuk asli namun memangkas jumlah vertex
-            union_geom = union_geom.simplify(tolerance=0.0001, preserve_topology=True)
-            
-            geojson_geom = shapely.geometry.mapping(union_geom)
-            
             # Show success info
-            st.success(f"✓ Berhasil memuat {uploaded_file.name}. Memproses data GEE...")
+            st.success(f"✓ Berhasil memuat batas wilayah ({aoi_name}). Memproses data GEE...")
             
             # Fetch Time Series Data (Cached)
             with st.spinner("Mengunduh data Sentinel-2 dari GEE..."):
@@ -551,16 +584,17 @@ def main():
             st.error(f"Terjadi kesalahan saat memproses data: {e}")
             
     else:
-        # Default placeholder when no file is uploaded
-        st.info("👋 Selamat Datang! Silakan unggah berkas spasial batas wilayah (AOI) Anda pada panel kiri untuk memulai analisis.")
+        # Default placeholder when no file is uploaded and no drawing is made
+        if aoi_method == "Unggah File":
+            st.info("👋 Selamat Datang! Silakan unggah berkas spasial batas wilayah (AOI) Anda pada panel kiri untuk memulai analisis.")
         
         # Guide cards
         col_g1, col_g2, col_g3 = st.columns(3)
         with col_g1:
             st.markdown("""
             <div class="glass-card">
-                <h3>📂 Unggah Berkas</h3>
-                <p>Mendukung format GeoJSON (.geojson), KML (.kml), atau Shapefile (.shp diunggah dalam format ZIP bersama file pendukungnya).</p>
+                <h3>📂/✏️ Input Area</h3>
+                <p>Mendukung unggah format GeoJSON, KML, ZIP Shapefile, <b>ATAU</b> Anda dapat langsung menggambar area manual di peta.</p>
             </div>
             """, unsafe_allow_html=True)
         with col_g2:
