@@ -133,9 +133,17 @@ def parse_aoi(uploaded_file):
             read_path = filepath
             
         try:
-            gdf = gpd.read_file(read_path)
+            # Try Pyogrio first as it handles KML nicely without explicit driver enabling
+            gdf = gpd.read_file(read_path, engine="pyogrio")
         except Exception as e:
-            raise ValueError(f"Gagal membaca format spasial: {e}")
+            try:
+                # Fallback to fiona, explicitly enabling KML
+                import fiona
+                fiona.drvsupport.supported_drivers['KML'] = 'rw'
+                fiona.drvsupport.supported_drivers['LIBKML'] = 'rw'
+                gdf = gpd.read_file(read_path)
+            except Exception as e2:
+                raise ValueError(f"Gagal membaca format spasial: Pyogrio ({e}) | Fiona ({e2})")
             
         if gdf.empty:
             raise ValueError("Berkas spasial yang diunggah tidak memiliki data geometri.")
@@ -145,6 +153,13 @@ def parse_aoi(uploaded_file):
             gdf.set_crs(epsg=4326, inplace=True)
         elif gdf.crs.to_epsg() != 4326:
             gdf = gdf.to_crs(epsg=4326)
+            
+        # Fix invalid geometries and keep only Polygons (GEE reducers need area)
+        gdf.geometry = gdf.geometry.make_valid()
+        gdf = gdf.explode(index_parts=True)
+        gdf = gdf[gdf.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+        if gdf.empty:
+            raise ValueError("Berkas AOI tidak memiliki tipe geometri area/Polygon yang valid.")
             
         return gdf
 
@@ -320,6 +335,11 @@ def main():
             gdf = parse_aoi(uploaded_file)
             # Create ee.Geometry from gdf
             union_geom = gdf.geometry.unary_union
+            
+            # Sederhanakan geometri untuk GeoJSON/KML yang sangat kompleks agar tidak melebihi batas payload GEE
+            # Toleransi 0.0001 derajat (~10 meter) cukup untuk mempertahankan bentuk asli namun memangkas jumlah vertex
+            union_geom = union_geom.simplify(tolerance=0.0001, preserve_topology=True)
+            
             geojson_geom = shapely.geometry.mapping(union_geom)
             
             # Show success info
