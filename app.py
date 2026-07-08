@@ -353,7 +353,10 @@ def main():
             try:
                 gdf = parse_aoi(uploaded_file)
                 # Create ee.Geometry from gdf
-                union_geom = gdf.geometry.unary_union
+                if hasattr(gdf.geometry, 'union_all'):
+                    union_geom = gdf.geometry.union_all()
+                else:
+                    union_geom = gdf.geometry.unary_union
                 
                 # Sederhanakan geometri untuk GeoJSON/KML yang sangat kompleks agar tidak melebihi batas payload GEE
                 # Toleransi 0.0001 derajat (~10 meter) cukup untuk mempertahankan bentuk asli namun memangkas jumlah vertex
@@ -374,7 +377,7 @@ def main():
         
         # Render map for drawing
         from streamlit_folium import st_folium
-        draw_output = st_folium(m_draw, height=450, use_container_width=True, key="draw_map")
+        draw_output = st_folium(m_draw, height=450, use_container_width=True, key="draw_map", returned_objects=["last_active_drawing"])
         
         if draw_output and draw_output.get("last_active_drawing"):
             drawn_feature = draw_output["last_active_drawing"]
@@ -511,7 +514,7 @@ def main():
             # Draw Map
             with map_placeholder.container():
                 from streamlit_folium import st_folium
-                st_folium(m, height=450, use_container_width=True, key="result_map")
+                st_folium(m, height=450, use_container_width=True, key="result_map", returned_objects=[])
                 
             # --- PLOTLY TREND CHART ---
             st.markdown("---")
