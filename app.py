@@ -373,7 +373,8 @@ def main():
         # Add draw control (usually on by default in geemap, but good to be explicit)
         
         # Render map for drawing
-        draw_output = m_draw.to_streamlit(height=450, bidirectional=True)
+        from streamlit_folium import st_folium
+        draw_output = st_folium(m_draw, height=450, use_container_width=True, key="draw_map")
         
         if draw_output and draw_output.get("last_active_drawing"):
             drawn_feature = draw_output["last_active_drawing"]
@@ -509,7 +510,8 @@ def main():
             
             # Draw Map
             with map_placeholder.container():
-                m.to_streamlit(height=450)
+                from streamlit_folium import st_folium
+                st_folium(m, height=450, use_container_width=True, key="result_map")
                 
             # --- PLOTLY TREND CHART ---
             st.markdown("---")
