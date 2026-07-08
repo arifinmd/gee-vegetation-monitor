@@ -224,7 +224,7 @@ def fetch_gee_data(geojson_geom, cloud_threshold, index_name, start_date, end_da
         ).get(index_name)
         
         return ee.Feature(None, {
-            'date': img.date().format('YYYY-MM-DD'),
+            'date': img.date().format('yyyy-MM-dd'),
             'mean': mean_val
         })
         
