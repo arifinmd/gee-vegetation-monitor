@@ -83,34 +83,33 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- GOOGLE EARTH ENGINE INITIALIZATION ---
+@st.cache_resource
 def init_gee():
-    if not ee.data._initialized:
-        # 1. Try Service Account from secrets
-        if 'EE_SERVICE_ACCOUNT' in st.secrets:
-            try:
-                sa_info = json.loads(st.secrets['EE_SERVICE_ACCOUNT'])
-                credentials = ee.ServiceAccountCredentials(
-                    sa_info['client_email'],
-                    key_data=sa_info['private_key']
-                )
-                ee.Initialize(credentials)
-                return True
-            except Exception as e:
-                st.error(f"Gagal inisialisasi GEE via Service Account: {e}")
-        
-        # 2. Try Default Credentials / ee.Authenticate() fallback
+    # 1. Try Service Account from secrets
+    if 'EE_SERVICE_ACCOUNT' in st.secrets:
         try:
+            sa_info = json.loads(st.secrets['EE_SERVICE_ACCOUNT'])
+            credentials = ee.ServiceAccountCredentials(
+                sa_info['client_email'],
+                key_data=sa_info['private_key']
+            )
+            ee.Initialize(credentials)
+            return True
+        except Exception as e:
+            st.error(f"Gagal inisialisasi GEE via Service Account: {e}")
+            
+    # 2. Try Default Credentials / ee.Authenticate() fallback
+    try:
+        ee.Initialize()
+        return True
+    except Exception:
+        try:
+            ee.Authenticate()
             ee.Initialize()
             return True
-        except Exception:
-            try:
-                ee.Authenticate()
-                ee.Initialize()
-                return True
-            except Exception as e:
-                st.error(f"Otentikasi GEE gagal. Harap konfigurasikan Service Account atau jalankan ee.Authenticate() secara manual. Error: {e}")
-                return False
-    return True
+        except Exception as e:
+            st.error(f"Otentikasi GEE gagal. Harap konfigurasikan Service Account atau jalankan ee.Authenticate() secara manual. Error: {e}")
+            return False
 
 # --- AOI FILE PARSER ---
 def parse_aoi(uploaded_file):
