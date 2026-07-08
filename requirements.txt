@@ -4,4 +4,3 @@ earthengine-api
 geopandas
 pyogrio
 plotly
-fiona

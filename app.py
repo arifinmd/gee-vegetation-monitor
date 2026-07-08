@@ -10,7 +10,6 @@ import tempfile
 import shapely.geometry
 from datetime import datetime
 import json
-import fiona
 
 # --- CONFIG & STYLING ---
 st.set_page_config(
@@ -19,12 +18,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# Enable KML support in fiona
-try:
-    fiona.drvsupport.supported_drivers['KML'] = 'rw'
-except Exception:
-    pass
 
 # Custom CSS for Premium UI
 st.markdown("""
