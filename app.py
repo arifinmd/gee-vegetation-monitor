@@ -578,7 +578,7 @@ def main():
                 showlegend=False
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             
         except Exception as e:
             st.error(f"Terjadi kesalahan saat memproses data: {e}")

@@ -4,3 +4,4 @@ earthengine-api
 geopandas
 pyogrio
 plotly
+streamlit-folium
