@@ -156,6 +156,15 @@ def parse_aoi(uploaded_file):
             
         # Fix invalid geometries and keep only Polygons (GEE reducers need area)
         gdf.geometry = gdf.geometry.make_valid()
+        
+        # Strip Z-dimension (altitude) because GEE only accepts 2D coordinates
+        import shapely
+        if hasattr(shapely, 'force_2d'):
+            gdf.geometry = shapely.force_2d(gdf.geometry)
+        else:
+            import shapely.wkb
+            gdf.geometry = gdf.geometry.map(lambda geom: shapely.wkb.loads(shapely.wkb.dumps(geom, output_dimension=2)) if geom else None)
+            
         gdf = gdf.explode(index_parts=True)
         gdf = gdf[gdf.geometry.type.isin(['Polygon', 'MultiPolygon'])]
         if gdf.empty:
